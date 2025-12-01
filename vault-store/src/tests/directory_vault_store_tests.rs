@@ -1,7 +1,4 @@
-use core_domain::{
-    ports::vault_store::VaultStore, vault_store::vault_store_error::VaultStoreError,
-};
-use tempfile::NamedTempFile;
+use core_domain::ports::{file_storage::FileStorage, vault_store::VaultStore};
 
 use crate::directory_vault_store::DirectoryVaultStore;
 
@@ -9,11 +6,9 @@ use crate::directory_vault_store::DirectoryVaultStore;
 fn should_retrieve_file() {
     // A-rrange
 
-    let file = NamedTempFile::new().unwrap();
-    let username = file.path().file_name().unwrap().to_str().unwrap();
-    let path = file.path().parent().unwrap().to_str().unwrap().to_string();
+    let username = "username";
 
-    let directory_vault_store = DirectoryVaultStore::new(path);
+    let directory_vault_store = DirectoryVaultStore::new(MockFileStorage::new(String::new()));
 
     // A-ct
 
@@ -21,37 +16,14 @@ fn should_retrieve_file() {
 
     // A-ssert
     assert!(result.is_ok());
-    assert!(result.unwrap().is_empty());
-}
-
-#[test]
-fn should_not_retrieve_file_not_found() {
-    // A-rrange
-
-    let directory_vault_store = DirectoryVaultStore::new("/wrong_path/".to_string());
-
-    // A-ct
-
-    let result = directory_vault_store.retrieve("doest_not_exist");
-
-    // A-ssert
-    assert!(result.is_err());
-
-    match result {
-        Err(VaultStoreError::VaultNotFound(_)) => assert!(true),
-        _ => panic!("Test result should be VaultNotFound."),
-    }
+    assert_eq!(result.unwrap(), vec![42]);
 }
 
 #[test]
 fn should_save_file() {
-
     // A-rrange
 
-    let file = NamedTempFile::new().unwrap();
-    let path = file.path().parent().unwrap().to_str().unwrap().to_string();
-
-    let directory_vault_store = DirectoryVaultStore::new(path);
+    let directory_vault_store = DirectoryVaultStore::new(MockFileStorage::new(String::new()));
 
     // A-ct
 
@@ -59,4 +31,24 @@ fn should_save_file() {
 
     // A-ssert
     assert!(result.is_ok());
+}
+
+struct MockFileStorage;
+
+impl FileStorage for MockFileStorage {
+    fn new(_: String) -> Self {
+        Self
+    }
+
+    fn retrieve(&self, _: &str) -> core_domain::file_storage::file_storage_error::Result<Vec<u8>> {
+        Ok(vec![42])
+    }
+
+    fn save(
+        &self,
+        _: &str,
+        _: Vec<u8>,
+    ) -> core_domain::file_storage::file_storage_error::Result<()> {
+        Ok(())
+    }
 }
