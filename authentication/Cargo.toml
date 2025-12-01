@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-opaque-ke = "4.0.1"
+opaque-ke = { version = "4.1.0-pre.1", features = ["argon2", "std"] }
+core-domain = { path = "../core-domain" }
+sha2 = "0.10.9"
+hex = "0.4.3"
+hkdf = "0.12.4"
+hmac = "0.12.1"

@@ -4,5 +4,6 @@ members = [
     "server",
     "core-domain",
     "authentication",
-    "vault-store"
+    "vault-store",
+    "file-storage",
 ]
