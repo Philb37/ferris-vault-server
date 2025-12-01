@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use core_domain::{
     authentication::authentication_error::{AuthenticationError, Result},
@@ -13,7 +16,10 @@ use opaque_ke::{
 };
 use sha2::Sha512;
 
+use crate::session::Session;
+
 const USERNAME_DID_NOT_START_LOGIN_PHASE: &'static str = "Username did not start login phase.";
+const SESSION_SHOULD_BE_PRESENT: &'static str = "Session should be present, checks should have been performed before.";
 
 pub type HmacSha512 = Hmac<Sha512>;
 
@@ -30,12 +36,12 @@ pub struct OpaqueAuthentication<FS: FileStorage> {
     file_storage: FS,
     server_setup: ServerSetup<StandardCipherSuite>,
     current_login_sessions: HashMap<String, ServerLoginStartResult<StandardCipherSuite>>,
-    logged_sessions: HashMap<String, Vec<u8>>,
+    logged_sessions: HashMap<String, Session>,
     request_max_ttl: u64,
 }
 
 impl<FS: FileStorage> OpaqueAuthentication<FS> {
-    fn create_session(&mut self, session_key: &[u8]) -> Result<()> {
+    fn create_session(&mut self, session_key: &[u8], username: &str) -> Result<()> {
         let hkdf = Hkdf::<Sha512>::from_prk(session_key)
             .map_err(|error| AuthenticationError::CreatingSession(error.to_string()))?;
 
@@ -47,8 +53,8 @@ impl<FS: FileStorage> OpaqueAuthentication<FS> {
         let session_token = hex::encode(token);
 
         self.logged_sessions.insert(
-            session_token,
-            session_key.to_owned(),
+            session_token.clone(),
+            Session::new(session_key.to_vec(), session_token, username.to_string()),
         );
 
         Ok(())
@@ -143,11 +149,7 @@ impl<FS: FileStorage> Authentication for OpaqueAuthentication<FS> {
         Ok(server_login_start_result.message.serialize().to_vec())
     }
 
-    fn finish_server_login(
-        &mut self,
-        username: &str,
-        client_login_message: Vec<u8>,
-    ) -> Result<()> {
+    fn finish_server_login(&mut self, username: &str, client_login_message: Vec<u8>) -> Result<()> {
         let Some(server_login_start_result) = self.current_login_sessions.remove(username) else {
             return Err(AuthenticationError::Login(
                 USERNAME_DID_NOT_START_LOGIN_PHASE.to_string(),
@@ -162,13 +164,12 @@ impl<FS: FileStorage> Authentication for OpaqueAuthentication<FS> {
             .finish(client_login_start_finish, ServerLoginParameters::default())
             .map_err(|error| AuthenticationError::Login(error.to_string()))?;
 
-        self.create_session(&server_login_finish_result.session_key)?;
+        self.create_session(&server_login_finish_result.session_key, username)?;
 
         Ok(())
     }
 
     fn verify_bearer_token(&self, bearer_token: &str) -> bool {
-
         let Some(_) = self.logged_sessions.get(bearer_token) else {
             return false;
         };
@@ -186,11 +187,11 @@ impl<FS: FileStorage> Authentication for OpaqueAuthentication<FS> {
     ) -> Result<bool> {
         let raw_expected_signature = format!("{}|{}|{}", verb, uri, timestamp);
 
-        let Some(session_key) = self.logged_sessions.get(bearer_token) else {
+        let Some(session) = self.logged_sessions.get(bearer_token) else {
             return Ok(false);
         };
 
-        let mut mac = HmacSha512::new_from_slice(&session_key)
+        let mut mac = HmacSha512::new_from_slice(&session.session_key)
             .map_err(|error| AuthenticationError::Internal(error.to_string()))?;
 
         mac.update(raw_expected_signature.as_bytes());
@@ -201,15 +202,29 @@ impl<FS: FileStorage> Authentication for OpaqueAuthentication<FS> {
     }
 
     fn verify_request_timestamp(&self, request_creation_timestamp: &str) -> Result<bool> {
-        
         let current_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| AuthenticationError::Internal(error.to_string()))?
             .as_secs();
 
-        let request_creation_timestamp: u64 = request_creation_timestamp.parse()
-            .map_err(|error: std::num::ParseIntError| AuthenticationError::Internal(error.to_string()))?;
+        let request_creation_timestamp: u64 =
+            request_creation_timestamp
+                .parse()
+                .map_err(|error: std::num::ParseIntError| {
+                    AuthenticationError::Internal(error.to_string())
+                })?;
 
-        return Ok(self.request_max_ttl >= current_timestamp.saturating_sub(request_creation_timestamp));
+        return Ok(
+            self.request_max_ttl >= current_timestamp.saturating_sub(request_creation_timestamp)
+        );
+    }
+    
+    fn get_username_from_session(&self, bearer_token: &str) -> Result<String> {
+
+        let Some(session) = self.logged_sessions.get(bearer_token) else {
+            return Err(AuthenticationError::Internal(SESSION_SHOULD_BE_PRESENT.to_string()));
+        };
+
+        Ok(session.username.clone())
     }
 }
