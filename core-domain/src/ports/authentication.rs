@@ -9,4 +9,5 @@ pub trait Authentication {
     fn verify_bearer_token(&self, bearer_token: &str) -> bool;
     fn verify_signature(&self, bearer_token: &str, verb: &str, uri: &str, timestamp: &str, signature: &str) -> Result<bool>;
     fn verify_request_timestamp(&self, request_creation_timestamp: &str) -> Result<bool>;
+    fn get_username_from_session(&self, bearer_token: &str) -> Result<String>;
 }

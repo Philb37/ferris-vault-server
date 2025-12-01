@@ -554,6 +554,99 @@ fn should_not_verify_request_timestamp() {
     cleanup(test_path);
 }
 
+#[test]
+fn should_give_username() {
+    // A-rrange
+
+    let request_max_ttl = 5;
+
+    let username = "username";
+    let password = "password";
+
+    let mock_file_storage = generate_mock_file_storage();
+
+    let test_path = &mock_file_storage.path.clone();
+
+    let mut client_rng = OsRng;
+
+    let mut opaque_authentication = OpaqueAuthentication::new(mock_file_storage, request_max_ttl);
+
+    let client_registration_start_result =
+        ClientRegistration::<StandardCipherSuite>::start(&mut client_rng, password.as_bytes())
+            .unwrap();
+
+    let server_registration_start_result = opaque_authentication
+        .start_server_registration(
+            username,
+            client_registration_start_result
+                .message
+                .serialize()
+                .to_vec(),
+        )
+        .unwrap();
+
+    let client_finish_registration_result = client_registration_start_result
+        .state
+        .finish(
+            &mut client_rng,
+            password.as_bytes(),
+            RegistrationResponse::deserialize(&server_registration_start_result).unwrap(),
+            ClientRegistrationFinishParameters::default(),
+        )
+        .unwrap();
+
+    opaque_authentication
+        .finish_server_registration(
+            username,
+            client_finish_registration_result
+                .message
+                .serialize()
+                .to_vec(),
+        )
+        .unwrap();
+
+    let client_login_start_result =
+        ClientLogin::<StandardCipherSuite>::start(&mut client_rng, password.as_bytes()).unwrap();
+
+    let server_login_start_result = opaque_authentication
+        .start_server_login(
+            username,
+            client_login_start_result.message.serialize().to_vec(),
+        )
+        .unwrap();
+
+    let client_login_finish_result = client_login_start_result
+        .state
+        .finish(
+            &mut client_rng,
+            password.as_bytes(),
+            CredentialResponse::<StandardCipherSuite>::deserialize(&server_login_start_result)
+                .unwrap(),
+            ClientLoginFinishParameters::default(),
+        )
+        .unwrap();
+
+    opaque_authentication
+        .finish_server_login(
+            username,
+            client_login_finish_result.message.serialize().to_vec(),
+        )
+        .unwrap();
+
+    let client_session_token = create_session(&client_login_finish_result.session_key);
+
+    // A-ct
+
+    let result = opaque_authentication.get_username_from_session(&client_session_token);
+
+    // A-ssert
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), username);
+
+    cleanup(&test_path);
+}
+
 pub struct MockFileStorage {
     pub path: String,
 }
