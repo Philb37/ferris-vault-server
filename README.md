@@ -2,6 +2,16 @@
 
 Ferris-Vault-Server is the server part of the [Ferris-Vault-TUI](https://github.com/Philb37/ferris-vault-tui) password manager written in rust.
 
+# Lauching the app
+
+You need to pass as an argument the path to the config file.
+
+`server.exe my_path/config.yaml`
+
+You can follow the [config](/config.yaml) example to create your config.
+
+You also can optionaly add a `Rocket.toml` file to configure the webserver (host, port, etc...)
+
 # Project Architecture
 
 todo

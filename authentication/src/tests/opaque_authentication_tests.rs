@@ -659,8 +659,6 @@ impl FileStorage for MockFileStorage {
     fn retrieve(&self, file_name: &str) -> Result<Vec<u8>> {
         let file_path = Path::new(&self.path).join(file_name);
 
-        dbg!(&file_path);
-
         let file = File::open(&file_path).unwrap();
 
         let mut reader = BufReader::new(file);
