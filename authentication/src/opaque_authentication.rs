@@ -170,6 +170,7 @@ impl<FS: FileStorage> Authentication for OpaqueAuthentication<FS> {
     }
 
     fn verify_bearer_token(&self, bearer_token: &str) -> bool {
+
         let Some(_) = self.logged_sessions.get(bearer_token) else {
             return false;
         };

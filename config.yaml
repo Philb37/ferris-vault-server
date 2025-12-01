@@ -1,0 +1,6 @@
+server:
+  request_max_ttl: 5 # in seconds
+vault_store:
+  path: "C:\\Users\\Philippe\\Documents\\vault_store"
+password_file:
+  path: "C:\\Users\\Philippe\\Documents\\authentication_password_file"

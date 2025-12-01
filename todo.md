@@ -16,3 +16,5 @@
 ### Global
 
 - [ ] Add failing test (errors)
+- [ ] Remove unwraps
+- [ ] Incoporate more lifetimes

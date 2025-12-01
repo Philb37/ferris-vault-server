@@ -4,4 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+config = "0.15.19"
 rocket = "0.5.1"
+serde = "1.0.228"
+core-domain = { path = "../core-domain" }
+file-storage = { path = "../file-storage" }
+authentication = { path = "../authentication" }
+vault-store = { path = "../vault-store" }

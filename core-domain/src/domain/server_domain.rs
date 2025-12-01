@@ -100,7 +100,12 @@ impl<VS: VaultStore, A: Authentication> Domain<VS, A> for ServerDomain<VS, A> {
     fn finish_server_registration(&self, username: &str, client_message: Vec<u8>) -> Result<()> {
         self.authentication
             .finish_server_registration(username, client_message)
-            .map_err(authentication_error_to_server_domain_error)
+            .map_err(authentication_error_to_server_domain_error)?;
+
+        self.vault_store.save(username, vec![])
+            .map_err(vault_store_error_to_server_domain_error)?;
+
+        Ok(())
     }
 
     fn start_server_login(&mut self, username: &str, client_message: Vec<u8>) -> Result<Vec<u8>> {
